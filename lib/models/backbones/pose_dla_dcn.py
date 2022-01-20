@@ -11,10 +11,16 @@ import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
 from torch import nn
 
-from .DCNv2.dcn_v2 import DCN
+try:
+    from .DCNv2.dcn_v2 import DCN
+    USING_DCN = True
+except ImportError:
+    pass
+
 
 BN_MOMENTUM = 0.1
 logger = logging.getLogger(__name__)
+
 
 def get_model_url(data='imagenet', name='dla34', hash='ba72cf86'):
     return join('http://dl.yf.io/dla/models', data, '{}-{}.pth'.format(name, hash))
@@ -312,6 +318,7 @@ def dla34(pretrained=True, **kwargs):  # DLA-34
         model.load_pretrained_model(data='imagenet', name='dla34', hash='ba72cf86')
     return model
 
+
 class Identity(nn.Module):
 
     def __init__(self):
@@ -340,7 +347,7 @@ class DeformConv(nn.Module):
             nn.BatchNorm2d(cho, momentum=BN_MOMENTUM),
             nn.ReLU(inplace=True)
         )
-        self.conv = DCN(chi, cho, kernel_size=(3,3), stride=1, padding=1, dilation=1, deformable_groups=1)
+        self.conv = DCN(chi, cho, kernel_size=(3, 3), stride=1, padding=1, dilation=1, deformable_groups=1)
 
     def forward(self, x):
         x = self.conv(x)
@@ -354,11 +361,11 @@ class IDAUp(nn.Module):
         super(IDAUp, self).__init__()
         for i in range(1, len(channels)):
             c = channels[i]
-            f = int(up_f[i])  
+            f = int(up_f[i])
             proj = DeformConv(c, o)
             node = DeformConv(o, o)
-     
-            up = nn.ConvTranspose2d(o, o, f * 2, stride=f, 
+
+            up = nn.ConvTranspose2d(o, o, f * 2, stride=f,
                                     padding=f // 2, output_padding=0,
                                     groups=o, bias=False)
             fill_up_weights(up)
@@ -366,8 +373,7 @@ class IDAUp(nn.Module):
             setattr(self, 'proj_' + str(i), proj)
             setattr(self, 'up_' + str(i), up)
             setattr(self, 'node_' + str(i), node)
-                 
-        
+
     def forward(self, layers, startp, endp):
         for i in range(startp + 1, endp):
             upsample = getattr(self, 'up_' + str(i - startp))
@@ -375,7 +381,6 @@ class IDAUp(nn.Module):
             layers[i] = upsample(project(layers[i]))
             node = getattr(self, 'node_' + str(i - startp))
             layers[i] = node(layers[i] + layers[i - 1])
-
 
 
 class DLAUp(nn.Module):
@@ -396,10 +401,10 @@ class DLAUp(nn.Module):
             in_channels[j + 1:] = [channels[j] for _ in channels[j + 1:]]
 
     def forward(self, layers):
-        out = [layers[-1]] # start with 32
+        out = [layers[-1]]  # start with 32
         for i in range(len(layers) - self.startp - 1):
             ida = getattr(self, 'ida_{}'.format(i))
-            ida(layers, len(layers) -i - 2, len(layers))
+            ida(layers, len(layers) - i - 2, len(layers))
             out.insert(0, layers[-1])
         return out
 
@@ -409,7 +414,7 @@ class Interpolate(nn.Module):
         super(Interpolate, self).__init__()
         self.scale = scale
         self.mode = mode
-        
+
     def forward(self, x):
         x = F.interpolate(x, scale_factor=self.scale, mode=self.mode, align_corners=False)
         return x
@@ -418,6 +423,9 @@ class Interpolate(nn.Module):
 class DLASeg(nn.Module):
     def __init__(self, base_name, pretrained, down_ratio, final_kernel,
                  last_level, out_channel=0):
+        if not USING_DCN:
+            raise ImportError("Missing dependency for Deformable Convolution (DCV). See README.MD")
+
         super(DLASeg, self).__init__()
         assert down_ratio in [2, 4, 8, 16]
         self.first_level = int(np.log2(down_ratio))
@@ -430,9 +438,8 @@ class DLASeg(nn.Module):
         if out_channel == 0:
             out_channel = channels[self.first_level]
 
-        self.ida_up = IDAUp(out_channel, channels[self.first_level:self.last_level], 
+        self.ida_up = IDAUp(out_channel, channels[self.first_level:self.last_level],
                             [2 ** i for i in range(self.last_level - self.first_level)])
-                                 
 
     def forward(self, x):
         x = self.base(x)
@@ -445,12 +452,12 @@ class DLASeg(nn.Module):
 
         x = y[-1]
         return x
-    
+
 
 def get_pose_net(num_layers, cfg=None, down_ratio=4):
-  model = DLASeg('dla{}'.format(num_layers),
-                 pretrained=True,
-                 down_ratio=down_ratio,
-                 final_kernel=1,
-                 last_level=5)
-  return model
+    model = DLASeg('dla{}'.format(num_layers),
+                   pretrained=True,
+                   down_ratio=down_ratio,
+                   final_kernel=1,
+                   last_level=5)
+    return model
