@@ -14,7 +14,7 @@ from utils.image import get_affine_transform
 
 class BaseDetector(object):
     def __init__(self, cfg):
-    
+
         print('Creating model...')
         self.model = create_model(cfg.MODEL.NAME, cfg.MODEL.HEAD_CONV, cfg)
         self.model = load_model(self.model, cfg.TEST.MODEL_PATH)
@@ -33,7 +33,7 @@ class BaseDetector(object):
         height, width = image.shape[0:2]
 
         new_height = int(height * scale)
-        new_width  = int(width * scale)
+        new_width = int(width * scale)
         if self.cfg.TEST.FIX_RES:
             inp_height, inp_width = self.cfg.MODEL.INPUT_H, self.cfg.MODEL.INPUT_W
             c = np.array([new_width / 2., new_height / 2.], dtype=np.float32)
@@ -56,8 +56,8 @@ class BaseDetector(object):
         if self.cfg.TEST.FLIP_TEST:
             images = np.concatenate((images, images[:, :, :, ::-1]), axis=0)
         images = torch.from_numpy(images)
-        meta = {'c': c, 's': s, 
-                'out_height': inp_height // self.cfg.MODEL.DOWN_RATIO, 
+        meta = {'c': c, 's': s,
+                'out_height': inp_height // self.cfg.MODEL.DOWN_RATIO,
                 'out_width': inp_width // self.cfg.MODEL.DOWN_RATIO}
         return images, meta
 
@@ -79,13 +79,13 @@ class BaseDetector(object):
     def run(self, image_or_path_or_tensor, meta=None):
         load_time, pre_time, net_time, dec_time, post_time = 0, 0, 0, 0, 0
         merge_time, tot_time = 0, 0
-        debugger = Debugger((self.cfg.DEBUG==3), theme=self.cfg.DEBUG_THEME, 
-                   num_classes=self.cfg.MODEL.NUM_CLASSES, dataset=self.cfg.SAMPLE_METHOD, down_ratio=self.cfg.MODEL.DOWN_RATIO)
+        debugger = Debugger((self.cfg.DEBUG == 3), theme=self.cfg.DEBUG_THEME,
+                            num_classes=self.cfg.MODEL.NUM_CLASSES, dataset=self.cfg.SAMPLE_METHOD, down_ratio=self.cfg.MODEL.DOWN_RATIO)
         start_time = time.time()
         pre_processed = False
         if isinstance(image_or_path_or_tensor, np.ndarray):
             image = image_or_path_or_tensor
-        elif type(image_or_path_or_tensor) == type (''): 
+        elif type(image_or_path_or_tensor) == type(''):
             image = cv2.imread(image_or_path_or_tensor)
         else:
             image = image_or_path_or_tensor['image'][0].numpy()
@@ -119,13 +119,13 @@ class BaseDetector(object):
             if self.cfg.DEBUG >= 2:
                 self.debug(debugger, images, dets, output, scale)
 
-            dets= self.post_process(dets, meta, scale)
+            dets = self.post_process(dets, meta, scale)
             torch.cuda.synchronize()
             post_process_time = time.time()
             post_time += post_process_time - decode_time
 
             detections.append(dets)
-    
+
         results = self.merge_outputs(detections)
         torch.cuda.synchronize()
         end_time = time.time()
@@ -135,6 +135,6 @@ class BaseDetector(object):
         if self.cfg.DEBUG >= 1:
             self.show_results(debugger, image, results)
 
-        return {'results': {1:results}, 'tot': tot_time, 'load': load_time,
+        return {'results': {1: results}, 'tot': tot_time, 'load': load_time,
                 'pre': pre_time, 'net': net_time, 'dec': dec_time,
                 'post': post_time, 'merge': merge_time}
