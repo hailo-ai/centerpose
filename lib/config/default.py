@@ -53,6 +53,7 @@ _C.MODEL.TARGET_TYPE = 'gaussian'
 _C.MODEL.SIGMA = 2
 _C.MODEL.CENTER_THRESH = 0.1
 _C.MODEL.EXTRA = CN(new_allowed=True)
+_C.MODEL.SPLIT_DECONV = False
 
 _C.LOSS = CN()
 _C.LOSS.METRIC = 'loss'
