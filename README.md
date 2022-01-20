@@ -1,3 +1,36 @@
+# HAILO README
+A repository for training CenterPose.
+forked from [tensorboy/centerpose](https://github.com/tensorboy/centerpose).
+
+## Changes
+- Added support to "FPN" meta architecture
+- Added support for [pycls](https://github.com/facebookresearch/pycls) networks
+- Added support for [RepVGG](https://github.com/DingXiaoH/RepVGG) networks
+- Added support for tensorboard
+- Added export.py to export onnx model
+- Minor bug fixes
+
+## Installation
+- Follow the original instructions below. You can use a more modern pytorch (1.5/1.6) than listed.
+- Install [pycls](https://github.com/facebookresearch/pycls/blob/master/docs/GETTING_STARTED.md) for regnet backbone support
+- (Optional) Install tensorboard via pip: `pip install tensorboard`. If using really old pytorch, install tensorboardX instead.
+
+## Usage
+### Setting up TRAINS
+- Install [TRAINS](https://allegro.ai/blog/setting-up-allegro-ai-platform/)
+- If you don't have one, setup a [TRAINS server](https://allegro.ai/docs/deploying_trains/trains_server_config/)
+- [Configure TRAINS](https://allegro.ai/docs/deploying_trains/trains_config_for_trains_server/) to connect to your server 
+- Go to `train.py` and look for Task.init call. Change the parameters to fit your experiment.
+### Train centerpose regnet_fpn
+- Create an experiment configuration, such as: experiments/regnet_fpn.yaml
+- Choose a backbone (e.g. RegNetX-3.2GF_dds_8gpu)
+  - Update CONFIG_STRING in the .yaml file to match your backbone
+  - Download the model YAML & pyth from the [Model Zoo](https://github.com/facebookresearch/pycls/blob/master/MODEL_ZOO.md) and place them in the root directory
+- Start training using the instructions below
+### Export to onnx
+- run demo.py, e.g.: `python tools/demo.py --cfg experiments/regnet_fpn.yaml --TEST regnet3.2_fpn_best.pth`
+
+# ORIGINAL README
 # The repo is based on [CenterNet](https://arxiv.org/abs/1904.07850), which aimed for push the boundary of human pose estimation
 multi person pose estimation using center point detection:
 ![](readme/fig2.png)
