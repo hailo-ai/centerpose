@@ -1,10 +1,10 @@
 SAMPLE_METHOD: 'coco_hp'
-DATA_DIR: '/home/tensorboy/data'
+DATA_DIR: '/workspace/data'
 EXP_ID: 'coco_pose_hrnet'
 DEBUG: 0
 DEBUG_THEME: 'white'
 SEED: 317
-OUTPUT_DIR: '/home/tensorboy/data/centerpose/hrnet'
+OUTPUT_DIR: '/workspace/data/centerpose/hrnet'
 LOG_DIR: ''
 EXPERIMENT_NAME: ''
 GPUS: [0, 1, 2, 3]
@@ -129,11 +129,11 @@ MODEL:
       CAT_OUTPUT:
       - True
   INIT_WEIGHTS: true
-  PRETRAINED: '/home/tensorboy/data/pretrained_models/imagenet/hrnet_w48-8ef0771d.pth'
+  PRETRAINED: '/workspace/data/pretrained_models/imagenet/hrnet_w48-8ef0771d.pth'
   TAG_PER_JOINT: true
 TEST:
   # Test Model Epoch
-  MODEL_PATH: '/home/tensorboy/data/centerpose/hrnet/model_best.pth'
+  MODEL_PATH: '/workspace/data/centerpose/hrnet/model_best.pth'
   TASK: 'multi_pose'
   FLIP_TEST: true
   FIX_RES: false

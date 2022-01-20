@@ -1,10 +1,10 @@
 SAMPLE_METHOD: 'coco_hp'
-DATA_DIR: '/home/tensorboy/data'
+DATA_DIR: '/workspace/data'
 EXP_ID: 'coco_pose_shufflenetv2'
 DEBUG: 0
 DEBUG_THEME: 'white'
 SEED: 317
-OUTPUT_DIR: '/home/tensorboy/data/centerpose/shufflenet_3x_sgd'
+OUTPUT_DIR: '/workspace/data/centerpose/shufflenet_3x_sgd'
 LOG_DIR: ''
 EXPERIMENT_NAME: ''
 GPUS: [0, 1, 2, 3]
@@ -113,7 +113,7 @@ TRAIN:
  
 TEST:
   # Test Model Epoch
-  MODEL_PATH: '/home/tensorboy/data/centerpose/shufflenet_3x_sgd/model_best.pth'
+  MODEL_PATH: '/workspace/data/centerpose/shufflenet_3x_sgd/model_best.pth'
   TASK: 'multi_pose'
   FLIP_TEST: true
 

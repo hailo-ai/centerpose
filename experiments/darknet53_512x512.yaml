@@ -1,31 +1,30 @@
-SAMPLE_METHOD: 'coco_hp'
-DATA_DIR: '/home/tensorboy/data'
-EXP_ID: 'darknet53'
+SAMPLE_METHOD: "coco_hp"
+DATA_DIR: "/workspace/data"
+EXP_ID: "darknet53"
 DEBUG: 0
-DEBUG_THEME: 'white'
+DEBUG_THEME: "white"
 SEED: 317
-OUTPUT_DIR: '/home/tensorboy/data/centerpose/darknet53'
-LOG_DIR: ''
-EXPERIMENT_NAME: ''
+OUTPUT_DIR: "/workspace/data/centerpose/darknet53"
+LOG_DIR: ""
+EXPERIMENT_NAME: ""
 GPUS: [0, 1, 2, 3]
 WORKERS: 4
 PRINT_FREQ: 0
 PIN_MEMORY: true
 RANK: 0
 SAVE_RESULTS: true
-TASK : 'multi_pose'
+TASK: "multi_pose"
 
 CUDNN:
   BENCHMARK: true
 
 MODEL:
-
   CENTER_THRESH: 0.1
   NUM_CLASSES: 1
-  NAME: 'darknet'
-  HEADS_NAME: 'keypoint'
+  NAME: "darknet"
+  HEADS_NAME: "keypoint"
   HEADS_NUM: [1, 2, 34, 2, 17, 2]
-  INTERMEDIATE_CHANNEL: 256  
+  INTERMEDIATE_CHANNEL: 256
   HEAD_CONV: 256
   DOWN_RATIO: 4
   NUM_STACKS: 1
@@ -36,13 +35,13 @@ MODEL:
   PAD: 31
   NUM_KEYPOINTS: 17
   TAG_PER_JOINT: true
-  TARGET_TYPE: 'gaussian'
-  SIGMA: 2    
+  TARGET_TYPE: "gaussian"
+  SIGMA: 2
 
 LOSS:
-  METRIC: 'loss'
+  METRIC: "loss"
   MSE_LOSS: false
-  REG_LOSS: 'l1'
+  REG_LOSS: "l1"
   USE_OHKM: false
   TOPK: 8
   USE_TARGET_WEIGHT: true
@@ -53,18 +52,18 @@ LOSS:
   HM_HP: true
   REG_BBOX: true
   WH_WEIGHT: 0.1
-  REG_OFFSET: true  
+  REG_OFFSET: true
   OFF_WEIGHT: 1.
   REG_HP_OFFSET: true
-  
+
 DATASET:
-  DATASET: 'coco_hp'
-  TRAIN_SET: 'train'
-  TEST_SET: 'valid'
-  TRAIN_IMAGE_DIR: 'images/train2017'
-  TRAIN_ANNOTATIONS: ['person_keypoints_train2017.json']
-  VAL_IMAGE_DIR: 'images/val2017'
-  VAL_ANNOTATIONS: 'person_keypoints_val2017.json'
+  DATASET: "coco_hp"
+  TRAIN_SET: "train"
+  TEST_SET: "valid"
+  TRAIN_IMAGE_DIR: "images/train2017"
+  TRAIN_ANNOTATIONS: ["person_keypoints_train2017.json"]
+  VAL_IMAGE_DIR: "images/val2017"
+  VAL_ANNOTATIONS: "person_keypoints_val2017.json"
 
   # training data augmentation
   MEAN: [0.408, 0.447, 0.470]
@@ -81,13 +80,13 @@ DATASET:
   SCALE_MIN: 0.5
   SCALE_MAX: 1.1
   IMAGE_SIZE: 512
-  RANDOM_CROP: true 
-  
+  RANDOM_CROP: true
+
 TRAIN:
-  OPTIMIZER: 'adam'
+  OPTIMIZER: "adam"
   DISTRIBUTE: true
   LOCAL_RANK: 0
-  HIDE_DATA_TIME: false 
+  HIDE_DATA_TIME: false
   SAVE_ALL_MODEL: false
   RESUME: false
   LR_FACTOR: 0.1
@@ -107,19 +106,19 @@ TRAIN:
   # 'apply and reset gradients every n batches'
   STRIDE_APPLY: 1
 
-  CHECKPOINT: ''
+  CHECKPOINT: ""
   SHUFFLE: true
   VAL_INTERVALS: 1
   TRAINVAL: false
- 
+
 TEST:
   # Test Model Epoch
-  MODEL_PATH: '/home/tensorboy/data/centerpose/darknet53/model_best.pth'
-  TASK: 'multi_pose'
+  MODEL_PATH: "/workspace/data/centerpose/darknet53/model_best.pth"
+  TASK: "multi_pose"
   FLIP_TEST: true
 
-  DEMO_FILE: '../images/33823288584_1d21cf0a26_k.jpg'
-  MODEL_FILE: ''
+  DEMO_FILE: "../images/33823288584_1d21cf0a26_k.jpg"
+  MODEL_FILE: ""
   TEST_SCALES: [1]
   IMAGE_THRE: 0.1
   TOPK: 100

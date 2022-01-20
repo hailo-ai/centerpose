@@ -6,7 +6,7 @@ _C = CN()
 
 _C.TASK = 'multi_pose'
 _C.SAMPLE_METHOD = 'coco_hp'
-_C.DATA_DIR = '/data'
+_C.DATA_DIR = '/workspace/data'
 _C.EXP_ID = 'default'
 _C.DEBUG = 0
 _C.DEBUG_THEME = 'white'

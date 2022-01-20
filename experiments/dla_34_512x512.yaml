@@ -1,10 +1,10 @@
 SAMPLE_METHOD: 'coco_hp'
-DATA_DIR: '/data'
+DATA_DIR: '/workspace/data'
 EXP_ID: 'sgd_lr6e3'
 DEBUG: 0
 DEBUG_THEME: 'white'
 SEED: 317
-OUTPUT_DIR: '/data/centerpose/dla34_lr6e3'
+OUTPUT_DIR: '/workspace/data/centerpose/dla34_lr6e3'
 LOG_DIR: ''
 EXPERIMENT_NAME: ''
 GPUS: [0, 1, 2, 3]
@@ -114,7 +114,7 @@ TRAIN:
  
 TEST:
   # Test Model Epoch
-  MODEL_PATH: '/home/tensorboy/data/centerpose/model_zoo/dla34_best.pth'
+  MODEL_PATH: '/workspace/data/centerpose/model_zoo/dla34_best.pth'
   TASK: 'multi_pose'
   FLIP_TEST: true
 
