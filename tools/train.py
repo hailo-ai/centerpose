@@ -12,7 +12,9 @@ from config import cfg, update_config
 from datasets.dataset_factory import get_dataset
 from logger import Logger
 from models.model import create_model, load_model, save_model
-from trains.train_factory import train_factory
+from training.train_factory import train_factory
+
+from warmup_scheduler import GradualWarmupScheduler
 
 
 def parse_args():
@@ -101,6 +103,14 @@ def main(cfg, local_rank):
         sampler=train_sampler if cfg.TRAIN.DISTRIBUTE else None
     )
 
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 150)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+    if cfg.TRAIN.WARMUP_EPOCHS:
+        lr_scheduler = GradualWarmupScheduler(
+            optimizer, multiplier=1, total_epoch=cfg.TRAIN.WARMUP_EPOCHS, after_scheduler=scheduler)
+    else:
+        lr_scheduler = scheduler
+
     print('Starting training...')
     best = 0.
     for epoch in range(start_epoch + 1, cfg.TRAIN.EPOCHS + 1):
@@ -132,6 +142,7 @@ def main(cfg, local_rank):
             if local_rank == 0:
                 save_model(os.path.join(cfg.OUTPUT_DIR, 'model_last.pth'),
                            epoch, model, optimizer)
+        lr_scheduler.step(mAP)
         logger.write('\n')
         if epoch in cfg.TRAIN.LR_STEP:
             if local_rank == 0:
