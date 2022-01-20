@@ -20,6 +20,7 @@ from .backbones.shufflenetv2_dcn import get_shufflev2_net
 from .backbones.ghost_net import get_ghost_net
 from .backbones.efficientdet import get_efficientdet
 from .backbones.regnet_msra import get_regnet
+from .backbones.repvgg import get_repvgg
 from .backbones.regnet_fpn import get_pose_net as get_reget_fpn
 from .heads.keypoint import KeypointHead
 
@@ -38,6 +39,7 @@ _backbone_factory = {
   'ghostnet': get_ghost_net,
   'efficientdet':get_efficientdet,
   'regnet':get_regnet,
+  'repvgg': get_repvgg,
   'regnetfpn': get_reget_fpn,
 }
 
