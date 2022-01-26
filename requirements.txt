@@ -8,3 +8,5 @@ scipy
 pycocotools
 yacs
 pthflops
+git+https://github.com/ildoonet/pytorch-gradual-warmup-lr.git
+pycls

@@ -6,7 +6,7 @@ _C = CN()
 
 _C.TASK = 'multi_pose'
 _C.SAMPLE_METHOD = 'coco_hp'
-_C.DATA_DIR = '/data'
+_C.DATA_DIR = '/workspace/data'
 _C.EXP_ID = 'default'
 _C.DEBUG = 0
 _C.DEBUG_THEME = 'white'
@@ -53,6 +53,8 @@ _C.MODEL.TARGET_TYPE = 'gaussian'
 _C.MODEL.SIGMA = 2
 _C.MODEL.CENTER_THRESH = 0.1
 _C.MODEL.EXTRA = CN(new_allowed=True)
+_C.MODEL.SPLIT_DECONV = False
+_C.MODEL.CONFIG_STRING = ''
 
 _C.LOSS = CN()
 _C.LOSS.METRIC = 'loss'
@@ -110,6 +112,7 @@ _C.TRAIN.HIDE_DATA_TIME = False
 _C.TRAIN.SAVE_ALL_MODEL = False
 _C.TRAIN.RESUME = False
 _C.TRAIN.LR_FACTOR = 0.1
+_C.TRAIN.WARMUP_EPOCHS = 0
 _C.TRAIN.LR_STEP = [90, 120]
 _C.TRAIN.EPOCHS = 140
 _C.TRAIN.NUM_ITERS = -1

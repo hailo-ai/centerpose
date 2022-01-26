@@ -23,6 +23,7 @@ model_urls = {
     'resnet152': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
 }
 
+
 def conv3x3(in_planes, out_planes, stride=1):
     """3x3 convolution with padding"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride,
@@ -103,16 +104,16 @@ class Bottleneck(nn.Module):
 
 
 def fill_fc_weights(layers):
-  for m in layers.modules():
-    if isinstance(m, nn.Conv2d):
-      nn.init.normal_(m.weight, std=0.001)
-      if m.bias is not None:
-        nn.init.constant_(m.bias, 0)
-        
-        
+    for m in layers.modules():
+        if isinstance(m, nn.Conv2d):
+            nn.init.normal_(m.weight, std=0.001)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+
+
 class PoseResNet(nn.Module):
 
-    def __init__(self, block, layers, **kwargs):
+    def __init__(self, block, layers, split_deconv, **kwargs):
         self.inplanes = 64
         self.deconv_with_bias = False
 
@@ -127,13 +128,26 @@ class PoseResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
 
+        new_block = []
+        if split_deconv:
+            planes = 256
+            new_block.append(nn.Conv2d(in_channels=self.inplanes,
+                                       out_channels=planes,
+                                       kernel_size=1,
+                                       stride=1,
+                                       padding=0,
+                                       bias=False))
+            new_block.append(nn.BatchNorm2d(planes, momentum=BN_MOMENTUM))
+            new_block.append(nn.ReLU(inplace=True))
+            self.inplanes = planes
+        self.new_block = nn.Sequential(*new_block)
+
         # used for deconv layers
         self.deconv_layers = self._make_deconv_layer(
             3,
             [256, 256, 256],
             [4, 4, 4],
-        )                
-                        
+        )
 
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
@@ -203,10 +217,11 @@ class PoseResNet(nn.Module):
         x = self.layer3(x)
         x = self.layer4(x)
 
+        x = self.new_block(x)
         x = self.deconv_layers(x)
 
         return x
-        
+
     def init_weights(self, num_layers, pretrained=True):
         if pretrained:
             # print('=> init resnet deconv weights from normal distribution')
@@ -222,7 +237,7 @@ class PoseResNet(nn.Module):
                     # print('=> init {}.bias as 0'.format(name))
                     nn.init.constant_(m.weight, 1)
                     nn.init.constant_(m.bias, 0)
-                           
+
             #pretrained_state_dict = torch.load(pretrained)
             url = model_urls['resnet{}'.format(num_layers)]
             pretrained_state_dict = model_zoo.load_url(url)
@@ -242,8 +257,8 @@ resnet_spec = {18: (BasicBlock, [2, 2, 2, 2]),
 
 
 def get_resnet(num_layers, cfg):
-  block_class, layers = resnet_spec[num_layers]
+    block_class, layers = resnet_spec[num_layers]
 
-  model = PoseResNet(block_class, layers)
-  model.init_weights(num_layers, pretrained=True)
-  return model
+    model = PoseResNet(block_class, layers, cfg.MODEL.SPLIT_DECONV)
+    model.init_weights(num_layers, pretrained=True)
+    return model

@@ -12,7 +12,9 @@ from config import cfg, update_config
 from datasets.dataset_factory import get_dataset
 from logger import Logger
 from models.model import create_model, load_model, save_model
-from trains.train_factory import train_factory
+from training.train_factory import train_factory
+
+from warmup_scheduler import GradualWarmupScheduler
 
 
 def parse_args():
@@ -22,45 +24,43 @@ def parse_args():
                         help='experiment configure file name',
                         required=True,
                         type=str)
-    parser.add_argument('--local_rank', type=int, default=0)                        
+    parser.add_argument('--local_rank', type=int, default=0)
     args = parser.parse_args()
 
     return args
-    
+
+
 def main(cfg, local_rank):
     torch.manual_seed(cfg.SEED)
     torch.backends.cudnn.benchmark = cfg.CUDNN.BENCHMARK
     Dataset = get_dataset(cfg.SAMPLE_METHOD, cfg.TASK)
 
-
     print('Creating model...')
     model = create_model(cfg.MODEL.NAME, cfg.MODEL.HEAD_CONV, cfg)
-    
+
     num_gpus = torch.cuda.device_count()
 
     if cfg.TRAIN.DISTRIBUTE:
-        device = torch.device('cuda:%d'%local_rank)
+        device = torch.device('cuda:%d' % local_rank)
         torch.cuda.set_device(local_rank)
-        dist.init_process_group(backend='nccl', init_method='env://',
+        dist.init_process_group(backend='gloo', init_method='env://',
                                 world_size=num_gpus, rank=local_rank)
     else:
         device = torch.device('cuda')
-             
+
     logger = Logger(cfg)
 
-        
-    if cfg.TRAIN.OPTIMIZER=='adam':
+    if cfg.TRAIN.OPTIMIZER == 'adam':
         optimizer = torch.optim.Adam(model.parameters(), cfg.TRAIN.LR)
-    elif cfg.TRAIN.OPTIMIZER== 'sgd':
-        optimizer = torch.optim.SGD(model.parameters(), lr=cfg.TRAIN.LR, momentum=0.9)    
+    elif cfg.TRAIN.OPTIMIZER == 'sgd':
+        optimizer = torch.optim.SGD(model.parameters(), lr=cfg.TRAIN.LR, momentum=0.9)
     else:
-        NotImplementedError
-        
-    start_epoch = 0
-    #if cfg.MODEL.INIT_WEIGHTS:
-    #    model, optimizer, start_epoch = load_model(
-    #      model, cfg.MODEL.PRETRAINED, optimizer, cfg.TRAIN.RESUME, cfg.TRAIN.LR, cfg.TRAIN.LR_STEP)
+        raise NotImplementedError()
 
+    start_epoch = 0
+    if cfg.MODEL.INIT_WEIGHTS:
+        model, optimizer, start_epoch = load_model(
+            model, cfg.MODEL.PRETRAINED, optimizer, cfg.TRAIN.RESUME, cfg.TRAIN.LR, cfg.TRAIN.LR_STEP)
     Trainer = train_factory[cfg.TASK]
     trainer = Trainer(cfg, local_rank, model, optimizer)
 
@@ -82,26 +82,34 @@ def main(cfg, local_rank):
     print('Setting up data...')
     val_dataset = Dataset(cfg, 'val')
     val_loader = torch.utils.data.DataLoader(
-      val_dataset, 
-      batch_size=1, 
-      shuffle=False,
-      num_workers=1,
-      pin_memory=True
+        val_dataset,
+        batch_size=1,
+        shuffle=False,
+        num_workers=1,
+        pin_memory=True
     )
-    
+
     train_dataset = Dataset(cfg, 'train')
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset,
-                                                                  num_replicas=num_gpus,
-                                                                  rank=local_rank)
+                                                                    num_replicas=num_gpus,
+                                                                    rank=local_rank)
     train_loader = torch.utils.data.DataLoader(
-      train_dataset, 
-      batch_size=cfg.TRAIN.BATCH_SIZE//num_gpus if cfg.TRAIN.DISTRIBUTE else cfg.TRAIN.BATCH_SIZE, 
-      shuffle=not cfg.TRAIN.DISTRIBUTE,
-      num_workers=cfg.WORKERS,
-      pin_memory=True,
-      drop_last=True,
-      sampler = train_sampler if cfg.TRAIN.DISTRIBUTE else None
+        train_dataset,
+        batch_size=cfg.TRAIN.BATCH_SIZE//num_gpus if cfg.TRAIN.DISTRIBUTE else cfg.TRAIN.BATCH_SIZE,
+        shuffle=not cfg.TRAIN.DISTRIBUTE,
+        num_workers=cfg.WORKERS,
+        pin_memory=True,
+        drop_last=True,
+        sampler=train_sampler if cfg.TRAIN.DISTRIBUTE else None
     )
+
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 150)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer)
+    if cfg.TRAIN.WARMUP_EPOCHS:
+        lr_scheduler = GradualWarmupScheduler(
+            optimizer, multiplier=1, total_epoch=cfg.TRAIN.WARMUP_EPOCHS, after_scheduler=scheduler)
+    else:
+        lr_scheduler = scheduler
 
     print('Starting training...')
     best = 0.
@@ -114,31 +122,38 @@ def main(cfg, local_rank):
             logger.scalar_summary('train_{}'.format(k), v, epoch)
             logger.write('{} {:8f} | '.format(k, v))
         if cfg.TRAIN.VAL_INTERVALS > 0 and epoch % cfg.TRAIN.VAL_INTERVALS == 0:
-            save_model(os.path.join(cfg.OUTPUT_DIR, 'model_{}.pth'.format(mark)), 
-                 epoch, model, optimizer)
+            if local_rank == 0:
+                save_model(os.path.join(cfg.OUTPUT_DIR, 'model_{}.pth'.format(mark)),
+                           epoch, model, optimizer)
             with torch.no_grad():
                 log_dict_val, preds = trainer.val(epoch, val_loader)
                 mAP = val_dataset.run_eval(preds, cfg.OUTPUT_DIR)
+                logger.scalar_summary('val_mAP', mAP, epoch)
                 print('mAP is: ', mAP)
             for k, v in log_dict_val.items():
                 logger.scalar_summary('val_{}'.format(k), v, epoch)
                 logger.write('{} {:8f} | '.format(k, v))
             if mAP > best:
                 best = mAP
-                save_model(os.path.join(cfg.OUTPUT_DIR, 'model_best.pth'), 
-                           epoch, model)
+                if local_rank == 0:
+                    save_model(os.path.join(cfg.OUTPUT_DIR, 'model_best.pth'),
+                               epoch, model)
         else:
-            save_model(os.path.join(cfg.OUTPUT_DIR, 'model_last.pth'), 
-                     epoch, model, optimizer)
+            if local_rank == 0:
+                save_model(os.path.join(cfg.OUTPUT_DIR, 'model_last.pth'),
+                           epoch, model, optimizer)
+        lr_scheduler.step(mAP)
         logger.write('\n')
         if epoch in cfg.TRAIN.LR_STEP:
-            save_model(os.path.join(cfg.OUTPUT_DIR, 'model_{}.pth'.format(epoch)), 
-                     epoch, model, optimizer)
+            if local_rank == 0:
+                save_model(os.path.join(cfg.OUTPUT_DIR, 'model_{}.pth'.format(epoch)),
+                           epoch, model, optimizer)
             lr = cfg.TRAIN.LR * (0.1 ** (cfg.TRAIN.LR_STEP.index(epoch) + 1))
             print('Drop LR to', lr)
             for param_group in optimizer.param_groups:
-              param_group['lr'] = lr
+                param_group['lr'] = lr
     logger.close()
+
 
 if __name__ == '__main__':
     args = parse_args()

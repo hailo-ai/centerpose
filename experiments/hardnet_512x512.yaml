@@ -1,10 +1,10 @@
 SAMPLE_METHOD: 'coco_hp'
-DATA_DIR: '/data'
+DATA_DIR: '/workspace/data'
 EXP_ID: 'hardnet'
 DEBUG: 0
 DEBUG_THEME: 'white'
 SEED: 317
-OUTPUT_DIR: '/data/centerpose/hardnet'
+OUTPUT_DIR: '/workspace/data/centerpose/hardnet'
 LOG_DIR: ''
 EXPERIMENT_NAME: ''
 GPUS: [0, 1, 2, 3]
@@ -19,7 +19,7 @@ CUDNN:
 
 MODEL:
   INIT_WEIGHTS: true
-  PRETRAINED: '/data/pretrained_models/imagenet/hardnet_petite_base.pth'
+  PRETRAINED: '/workspace/data/pretrained_models/imagenet/hardnet_petite_base.pth'
   CENTER_THRESH: 0.1
   INTERMEDIATE_CHANNEL: 48 
   NUM_CLASSES: 1
@@ -115,7 +115,7 @@ TRAIN:
  
 TEST:
   # Test Model Epoch
-  MODEL_PATH: '/data/centerpose/hardnet/model_best.pth'
+  MODEL_PATH: '/workspace/data/centerpose/hardnet/model_best.pth'
   TASK: 'multi_pose'
   FLIP_TEST: true
 

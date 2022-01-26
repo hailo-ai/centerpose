@@ -7,9 +7,16 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn import init
 
-from .DCNv2.dcn_v2 import DCN
+try:
+    from .DCNv2.dcn_v2 import DCN
+    USING_DCN = True
+except ImportError:
+    pass
+
 
 BN_MOMENTUM = 0.1
+
+
 def conv_bn(inp, oup, stride):
     return nn.Sequential(
         nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
@@ -25,14 +32,15 @@ def conv_1x1_bn(inp, oup):
         nn.ReLU(inplace=True)
     )
 
+
 def channel_shuffle(x, groups):
     batchsize, num_channels, height, width = x.data.size()
 
     channels_per_group = num_channels // groups
-    
+
     # reshape
-    x = x.view(batchsize, groups, 
-        channels_per_group, height, width)
+    x = x.view(batchsize, groups,
+               channels_per_group, height, width)
 
     x = torch.transpose(x, 1, 2).contiguous()
 
@@ -40,6 +48,7 @@ def channel_shuffle(x, groups):
     x = x.view(batchsize, -1, height, width)
 
     return x
+
 
 def fill_up_weights(up):
     w = up.weight.data
@@ -50,7 +59,7 @@ def fill_up_weights(up):
             w[0, 0, i, j] = \
                 (1 - math.fabs(i / f - c)) * (1 - math.fabs(j / f - c))
     for c in range(1, w.size(0)):
-        w[c, 0, :, :] = w[0, 0, :, :] 
+        w[c, 0, :, :] = w[0, 0, :, :]
 
 
 class InvertedResidual(nn.Module):
@@ -61,10 +70,10 @@ class InvertedResidual(nn.Module):
         assert stride in [1, 2]
 
         oup_inc = oup//2
-        
+
         if self.benchmodel == 1:
             #assert inp == oup_inc
-        	self.banch2 = nn.Sequential(
+            self.banch2 = nn.Sequential(
                 # pw
                 nn.Conv2d(oup_inc, oup_inc, 1, 1, 0, bias=False),
                 nn.BatchNorm2d(oup_inc),
@@ -76,8 +85,8 @@ class InvertedResidual(nn.Module):
                 nn.Conv2d(oup_inc, oup_inc, 1, 1, 0, bias=False),
                 nn.BatchNorm2d(oup_inc),
                 nn.ReLU(inplace=True),
-            )                
-        else:                  
+            )
+        else:
             self.banch1 = nn.Sequential(
                 # dw
                 nn.Conv2d(inp, inp, 3, stride, 1, groups=inp, bias=False),
@@ -86,8 +95,8 @@ class InvertedResidual(nn.Module):
                 nn.Conv2d(inp, oup_inc, 1, 1, 0, bias=False),
                 nn.BatchNorm2d(oup_inc),
                 nn.ReLU(inplace=True),
-            )        
-    
+            )
+
             self.banch2 = nn.Sequential(
                 # pw
                 nn.Conv2d(inp, oup_inc, 1, 1, 0, bias=False),
@@ -101,24 +110,28 @@ class InvertedResidual(nn.Module):
                 nn.BatchNorm2d(oup_inc),
                 nn.ReLU(inplace=True),
             )
-          
+
     @staticmethod
     def _concat(x, out):
         # concatenate along channel axis
-        return torch.cat((x, out), 1)        
+        return torch.cat((x, out), 1)
 
     def forward(self, x):
-        if 1==self.benchmodel:
+        if 1 == self.benchmodel:
             x1 = x[:, :(x.shape[1]//2), :, :]
             x2 = x[:, (x.shape[1]//2):, :, :]
             out = self._concat(x1, self.banch2(x2))
-        elif 2==self.benchmodel:
+        elif 2 == self.benchmodel:
             out = self._concat(self.banch1(x), self.banch2(x))
 
         return channel_shuffle(out, 2)
 
+
 class ShuffleNetV2(nn.Module):
     def __init__(self, input_size=512, width_mult=1.):
+        if not USING_DCN:
+            raise ImportError("Missing dependency for Deformable Convolution (DCV). See README.MD")
+
         super(ShuffleNetV2, self).__init__()
         self.inplanes = 24
         self.deconv_with_bias = False
@@ -142,8 +155,8 @@ class ShuffleNetV2(nn.Module):
 
         # building first layer
         input_channel = self.stage_out_channels[1]
-        self.conv1 = conv_bn(3, input_channel, 2)    
-        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1) 
+        self.conv1 = conv_bn(3, input_channel, 2)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.features = []
         # building inverted residual blocks
         for idxstage in range(len(self.stage_repeats)):
@@ -151,14 +164,13 @@ class ShuffleNetV2(nn.Module):
             output_channel = self.stage_out_channels[idxstage+2]
             for i in range(numrepeat):
                 if i == 0:
-	            #inp, oup, stride, benchmodel):
+                    # inp, oup, stride, benchmodel):
                     self.features.append(InvertedResidual(input_channel, output_channel, 2, 2))
                 else:
                     self.features.append(InvertedResidual(input_channel, output_channel, 1, 1))
                 input_channel = output_channel
                 self.inplanes = output_channel
-                
-                
+
         # make it nn.Sequential
         self.features = nn.Sequential(*self.features)
 
@@ -174,7 +186,6 @@ class ShuffleNetV2(nn.Module):
             [4, 4, 4],
         )
 
-
     def _get_deconv_cfg(self, deconv_kernel, index):
         if deconv_kernel == 4:
             padding = 1
@@ -188,7 +199,6 @@ class ShuffleNetV2(nn.Module):
 
         return deconv_kernel, padding, output_padding
 
-
     def _make_deconv_layer(self, num_layers, num_filters, num_kernels):
         assert num_layers == len(num_filters), \
             'ERROR: num_deconv_layers is different len(num_deconv_filters)'
@@ -201,21 +211,21 @@ class ShuffleNetV2(nn.Module):
                 self._get_deconv_cfg(num_kernels[i], i)
 
             planes = num_filters[i]
-            fc = DCN(self.inplanes, planes, 
-                    kernel_size=(3,3), stride=1,
-                    padding=1, dilation=1, deformable_groups=1)
+            fc = DCN(self.inplanes, planes,
+                     kernel_size=(3, 3), stride=1,
+                     padding=1, dilation=1, deformable_groups=1)
             # fc = nn.Conv2d(self.inplanes, planes,
-            #         kernel_size=3, stride=1, 
+            #         kernel_size=3, stride=1,
             #         padding=1, dilation=1, bias=False)
             # fill_fc_weights(fc)
             up = nn.ConvTranspose2d(
-                    in_channels=planes,
-                    out_channels=planes,
-                    kernel_size=kernel,
-                    stride=2,
-                    padding=padding,
-                    output_padding=output_padding,
-                    bias=self.deconv_with_bias)
+                in_channels=planes,
+                out_channels=planes,
+                kernel_size=kernel,
+                stride=2,
+                padding=padding,
+                output_padding=output_padding,
+                bias=self.deconv_with_bias)
             fill_up_weights(up)
 
             layers.append(fc)
@@ -237,18 +247,17 @@ class ShuffleNetV2(nn.Module):
                     nn.init.constant_(m.weight, 1)
                     nn.init.constant_(m.bias, 0)
             #pretrained_state_dict = torch.load(pretrained)
-            #address = "/data/pretrained_model/shufflenetv2_x1_69.390_88.412.pth.tar"
+            #address = "/workspace/data/pretrained_model/shufflenetv2_x1_69.390_88.412.pth.tar"
             #pretrained_state_dict = torch.load(address)
             #self.load_state_dict(pretrained_state_dict, strict=False)
 
-            
     def forward(self, x):
         #import pdb; pdb.set_trace()
         x = self.conv1(x)
         x = self.maxpool(x)
         x = self.features(x)
         x = self.deconv_layers(x)
-        
+
         return x
 
 
@@ -258,6 +267,6 @@ def shufflenetv2(width_mult=1.):
 
 
 def get_shufflev2_net(num_layers, cfg):
-  model = ShuffleNetV2()
-  model.init_weights( pretrained=True)
-  return model
+    model = ShuffleNetV2()
+    model.init_weights(pretrained=True)
+    return model

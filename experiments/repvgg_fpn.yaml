@@ -1,13 +1,13 @@
 SAMPLE_METHOD: "coco_hp"
-DATA_DIR: "/workspace/data"
-EXP_ID: "coco_pose_res_50"
+DATA_DIR: "/local/workspace/data/workspace/datasets/coco/"
+EXP_ID: "coco_pose_repvgg"
 DEBUG: 0
 DEBUG_THEME: "white"
 SEED: 317
-OUTPUT_DIR: "/workspace/centerpose/res50_lre2"
+OUTPUT_DIR: "./repvgg_fpn16"
 LOG_DIR: ""
 EXPERIMENT_NAME: ""
-GPUS: [0, 1, 2, 3]
+GPUS: [0]
 WORKERS: 8
 PRINT_FREQ: 0
 PIN_MEMORY: true
@@ -23,23 +23,24 @@ MODEL:
   PRETRAINED: ""
   CENTER_THRESH: 0.1
   NUM_CLASSES: 1
-  NAME: "res_50"
+  NAME: "repvgg"
   HEADS_NAME: "keypoint"
   HEADS_NUM: [1, 2, 34, 2, 17, 2]
-  HEAD_CONV: 64
-  INTERMEDIATE_CHANNEL: 256
+  HEAD_CONV: 96
+  INTERMEDIATE_CHANNEL: 96
   DOWN_RATIO: 4
   NUM_STACKS: 1
-  INPUT_RES: 512
-  OUTPUT_RES: 128
-  INPUT_H: 512
-  INPUT_W: 512
+  INPUT_RES: 416
+  OUTPUT_RES: 104
+  INPUT_H: 416
+  INPUT_W: 416
   PAD: 31
   NUM_KEYPOINTS: 17
   TAG_PER_JOINT: true
   TARGET_TYPE: "gaussian"
   SIGMA: 2
   SPLIT_DECONV: true
+  CONFIG_STRING: "RepVGG-A0"
 
 LOSS:
   METRIC: "loss"
@@ -63,9 +64,9 @@ DATASET:
   DATASET: "coco_hp"
   TRAIN_SET: "train"
   TEST_SET: "valid"
-  TRAIN_IMAGE_DIR: "images/train2017"
+  TRAIN_IMAGE_DIR: "train2017"
   TRAIN_ANNOTATIONS: ["person_keypoints_train2017.json"]
-  VAL_IMAGE_DIR: "images/val2017"
+  VAL_IMAGE_DIR: "val2017"
   VAL_ANNOTATIONS: "person_keypoints_val2017.json"
 
   # training data augmentation
@@ -82,23 +83,24 @@ DATASET:
   ROT_FACTOR: 30
   SCALE_MIN: 0.5
   SCALE_MAX: 1.1
-  IMAGE_SIZE: 512
+  IMAGE_SIZE: 416
   RANDOM_CROP: true
 
 TRAIN:
-  DISTRIBUTE: true
-  OPTIMIZER: "sgd"
+  DISTRIBUTE: false
+  OPTIMIZER: "adam"
   LOCAL_RANK: 0
   HIDE_DATA_TIME: false
   SAVE_ALL_MODEL: false
-  RESUME: false
+  RESUME: true
   LR_FACTOR: 0.1
-  LR_STEP: [150, 200]
-  EPOCHS: 1000
+  LR_STEP: [270, 300]
+  WARMUP_EPOCHS: 5
+  EPOCHS: 320
   NUM_ITERS: -1
-  LR: 7.e-3
-  BATCH_SIZE: 32
-  MASTER_BATCH_SIZE: 8
+  LR: 2.8125e-4
+  BATCH_SIZE: 60
+  MASTER_BATCH_SIZE: 15
 
   MOMENTUM: 0.9
   WD: 0.0001
@@ -109,14 +111,14 @@ TRAIN:
   # 'apply and reset gradients every n batches'
   STRIDE_APPLY: 1
 
-  CHECKPOINT: ""
+  CHECKPOINT: "./repvgg_a0"
   SHUFFLE: true
   VAL_INTERVALS: 1
   TRAINVAL: false
 
 TEST:
   # Test Model Epoch
-  MODEL_PATH: /workspace/data/res50/model_best.pth'
+  MODEL_PATH: ""
   TASK: "multi_pose"
   FLIP_TEST: true
 
